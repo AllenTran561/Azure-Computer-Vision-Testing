@@ -1,72 +1,141 @@
 import tkinter as tk
 from tkinter import filedialog
+from imageProcessing import getImages, processImages, setupClient
 from pandastable import Table
-from imageProcessing import setupClient, getImages, processImages
+import pandas as pd
 
-def selectFolder():
-    folderPath = filedialog.askdirectory()
-    if folderPath:
-        folderPathVar.set(folderPath)
+# GUI class
+class ImageAnalysisGUI:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("Image Analysis Tool")
+        self.folderPathVar = tk.StringVar()
+        # Inputted images
+        self.images = None
+        # expected output for each image
+        self.imageParams = []
+        self.target = None
+        self.selectFolder()
 
-def runAnalysis():
-    root = tk.Tk()
-    # Folder path and target is inputted through the gui
-    folderPath = folderPathVar.get()
-    target = targetVar.get()
+    # Select folder with images
+    def selectFolder(self):
+        labelFolder = tk.Label(self.root, text="Select Image Folder:")
+        labelFolder.grid(row=0, column=0, padx=10, pady=5)
 
-    client = setupClient()
-    images = getImages(folderPath)
-    df = processImages(client, images, target)
+        folder = tk.Entry(self.root, textvariable=self.folderPathVar, width=50)
+        folder.grid(row=0, column=1, padx=10, pady=5)
+
+        buttonBrowse = tk.Button(self.root, text="Browse", command=self.getImages)
+        buttonBrowse.grid(row=0, column=2, padx=10, pady=5)
+
+        buttonSubmit = tk.Button(self.root, text="Submit", command=self.imageExpectedOutput)
+        buttonSubmit.grid(row=1, column=1, padx=10, pady=5)
+
+    # Gets images in the folder
+    def getImages(self):
+        folderPath = filedialog.askdirectory()
+        if folderPath:
+            self.folderPathVar.set(folderPath)
+            self.images = getImages(folderPath)
     
-    df = df.sort_values(by='Filename')
+    # Accepts user inputs for expected result for each image
+    def imageExpectedOutput(self):
+        if self.images:
+            paramsWindow = tk.Toplevel()
+            paramsWindow.title("Image Parameters")
 
-    # Export df to CSV
-    df.to_csv('output.csv', index=False)
-    
-    # Export df to JSON
-    df.to_json('output.json', orient='records')
-    print("Analysis completed. Output files saved as 'output.csv' and 'output.json'.")
-    
-    frame = tk.Frame(root)
-    frame.grid(row=3, column=0, columnspan=3)
+            frame = tk.Frame(paramsWindow)
+            frame.pack(padx=10, pady=5)
 
-    # Creates a table in gui
-    pt = Table(frame, dataframe=df)
-    pt.show()
+            labelFilename = tk.Label(frame, text="Filename")
+            labelFilename.grid(row=0, column=0, padx=5, pady=2)
 
-    root.mainloop()
+            labelExpectedCount = tk.Label(frame, text="Expected Count")
+            labelExpectedCount.grid(row=0, column=1, padx=5, pady=2)
 
-def runGui():    
-    root = tk.Tk()  # Create Tkinter root window
-    root.title("Image Analysis Tool")
+            labelExpectedConfidence = tk.Label(frame, text="Expected Confidence")
+            labelExpectedConfidence.grid(row=0, column=2, padx=5, pady=2)
 
-    global folderPathVar, targetVar
+            expectedConfidence = tk.Entry(frame, width=10)
+            expectedConfidence.grid(row=0, column=3, padx=5, pady=2)
 
-    folderPathVar = tk.StringVar()
-    targetVar = tk.StringVar()
+            for filename, _ in self.images:
+                frame = tk.Frame(paramsWindow)
+                frame.pack(padx=10, pady=5)
 
-    # Folder label
-    labelFolder = tk.Label(root, text="Select Image Folder:")
-    labelFolder.grid(row=0, column=0, padx=10, pady=5)
+                labelFilename = tk.Label(frame, text=filename)
+                labelFilename.grid(row=0, column=0, padx=5, pady=2)
 
-    # Folder input
-    entryFolder = tk.Entry(root, textvariable=folderPathVar, width=50)
-    entryFolder.grid(row=0, column=1, padx=10, pady=5)
+                expectedCount = tk.Entry(frame, width=10)
+                expectedCount.grid(row=0, column=1, padx=5, pady=2)
 
-    # Folder browse button (opens up windows explorer)
-    buttonBrowse = tk.Button(root, text="Browse", command=selectFolder)
-    buttonBrowse.grid(row=0, column=2, padx=10, pady=5)
+                self.imageParams.append((filename, expectedCount, expectedConfidence))
 
-    # Target label
-    labelTarget = tk.Label(root, text="Target Object:")
-    labelTarget.grid(row=1, column=0, padx=10, pady=5)
-    
-    # Target input
-    entryTarget = tk.Entry(root, textvariable=targetVar, width=50)
-    entryTarget.grid(row=1, column=1, padx=10, pady=5)
+            labelTarget = tk.Label(frame, text="Target:")
+            labelTarget.grid(row=len(self.images), column=0, padx=5, pady=2)
 
-    # Runs program when pressed
-    buttonRun = tk.Button(root, text="Run Analysis", command=runAnalysis)
-    buttonRun.grid(row=2, column=1, padx=10, pady=5)
+            # Sets Target Variable
+            self.target = tk.Entry(frame, width=10)
+            self.target.grid(row=len(self.images), column=1, padx=5, pady=2)
 
-    root.mainloop()
+            buttonSubmit = tk.Button(paramsWindow, text="Submit", command=self.runAnalysis)
+            buttonSubmit.pack(padx=10, pady=5)
+
+    # Runs Image Analysis for each image
+    def runAnalysis(self):
+        client = setupClient()
+        target = self.target.get()
+        results = []
+
+        for filename, expectedCount, expectedConfidence in self.imageParams:
+            # Convert String input to int
+            expectedCount = int(expectedCount.get())
+            expectedConfidence = float(expectedConfidence.get())
+            imageData = [imgData for imgName, imgData in self.images if imgName == filename][0]
+            result = processImages(client, [(filename, imageData)], target, expectedCount, expectedConfidence)
+            results.append(result)  
+            
+        self.displayResults(results)
+
+    # Displays results
+    def displayResults(self, results):
+        resultsWindow = tk.Toplevel()
+        resultsWindow.title("Analysis Results")
+        # print("results: ", results)
+        # print("result type: ", type(results))
+        frame = tk.Frame(resultsWindow)
+        frame.pack(padx=10, pady=5)
+        # Turns list of lists to dictionary which df uses
+        resultsDict = [item for sublist in results for item in sublist]
+        df = pd.DataFrame(resultsDict)
+        print("df: ", df)
+
+        # Post results
+        # Add Detection column
+        df["Detection"] = df.apply(lambda row: "Inaccurate" 
+                                if row["Count"] != row["Expected Count"]
+                                    else ("Accurate"
+                                if row["Count"] == row["Expected Count"]
+                                    else "No Detection"
+                                          ), axis=1)
+
+        # If
+        df["Accuracy"] = df.apply(lambda row: "Low Confidence"
+                                if row["Confidence"] < row["Expected Confidence"] 
+                                    else ("High Confidence" 
+                                if row["Confidence"] > row["Expected Confidence"]                                   
+                                    else "No Accuracy"), axis=1)
+
+        # Add Pass column
+        df["Pass"] = df.apply(lambda row: True 
+                            if row["Detection"] == "Accurate" 
+                                and 
+                            row["Accuracy"] == "High Confidence" 
+                                else False, axis=1)
+
+
+        pt = Table(frame, dataframe=df, width=1000, height=1000, column_minwidth=150)
+        pt.show()
+
+    def run(self):
+        self.root.mainloop()

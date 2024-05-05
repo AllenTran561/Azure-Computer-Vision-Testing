@@ -1,4 +1,5 @@
-from ui.gui import run_gui
+from ui.gui import ImageAnalysisGUI
 
 if __name__ == "__main__":
-    run_gui()
+    app = ImageAnalysisGUI()
+    app.run()
