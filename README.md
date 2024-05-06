@@ -5,8 +5,7 @@ in the .env file
 
 other dependencies to download
 
-pip install azure-ai-vision
+pip install azure-ai-vision-imageanalysis
 pip install pandas
 pip install pandastable
 pip install python-dotenv
-

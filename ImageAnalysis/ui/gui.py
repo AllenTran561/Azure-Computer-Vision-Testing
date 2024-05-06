@@ -103,8 +103,12 @@ class ImageAnalysisGUI:
         resultsWindow.title("Analysis Results")
         # print("results: ", results)
         # print("result type: ", type(results))
-        frame = tk.Frame(resultsWindow)
-        frame.pack(padx=10, pady=5)
+        frameResults = tk.Frame(resultsWindow)
+        frameResults.pack(side=tk.LEFT, padx=10, pady=5)
+
+        frameSummary = tk.Frame(resultsWindow)
+        frameSummary.pack(side=tk.RIGHT, padx=10, pady=5)
+
         # Turns list of lists to dictionary which df uses
         resultsDict = [item for sublist in results for item in sublist]
         df = pd.DataFrame(resultsDict)
@@ -112,19 +116,19 @@ class ImageAnalysisGUI:
 
         # Post results
         # Add Detection column
-        df["Detection"] = df.apply(lambda row: "Inaccurate" 
-                                if row["Count"] != row["Expected Count"]
-                                    else ("Accurate"
+        df["Detection"] = df.apply(lambda row: "Accurate" 
                                 if row["Count"] == row["Expected Count"]
-                                    else "No Detection"
+                                    else ("No Detection"
+                                if row["Count"] == 0
+                                    else "Inaccurate"
                                           ), axis=1)
 
         # If
-        df["Accuracy"] = df.apply(lambda row: "Low Confidence"
-                                if row["Confidence"] < row["Expected Confidence"] 
+        df["Accuracy"] = df.apply(lambda row: "No Accuracy"
+                                if row["Confidence"] == 0 
                                     else ("High Confidence" 
                                 if row["Confidence"] > row["Expected Confidence"]                                   
-                                    else "No Accuracy"), axis=1)
+                                    else "Low Confidence"), axis=1)
 
         # Add Pass column
         df["Pass"] = df.apply(lambda row: True 
@@ -133,9 +137,19 @@ class ImageAnalysisGUI:
                             row["Accuracy"] == "High Confidence" 
                                 else False, axis=1)
 
+        summary = {
+            "Detection Average": df["Detection"].eq("Accurate").mean(),
+            "Accuracy Average": df["Accuracy"].eq("High Confidence").mean(),
+            "Pass Rate ": f"{df["Pass"].sum()} / {len(df)}",
+            "Pass Percentage": df["Pass"].eq(True).mean()
+        }
 
-        pt = Table(frame, dataframe=df, width=1000, height=1000, column_minwidth=150)
+        summaryDf = pd.DataFrame([summary])
+        print(summaryDf)
+        pt = Table(frameResults, dataframe=df, width=1000, height=1000, column_minwidth=150)
+        summaryPt = Table(frameSummary, dataframe=summaryDf)
         pt.show()
+        summaryPt.show()
 
     def run(self):
         self.root.mainloop()

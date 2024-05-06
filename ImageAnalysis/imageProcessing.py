@@ -19,17 +19,17 @@ def setupClient():
 
     return ImageAnalysisClient(endpoint=ENDPOINT, credential=AzureKeyCredential(API_KEY))
     
-# gets all images in the folder
+# gets all images in the folder (compatitble with .jpg and .png only)
 def getImages(folderPath):
     images = []
     try:
         for filename in os.listdir(folderPath):
             filepath = os.path.join(folderPath, filename)
-            if os.path.isfile(filepath) and filename.lower().endswith(".jpg"):
+            if os.path.isfile(filepath) and (filename.lower().endswith(".jpg") or filename.lower().endswith(".png")):
                 img = Image.open(filepath)
                 # Convert image to bytes (client.analyze uses bytes)
                 with io.BytesIO() as output:
-                    img.save(output, format="JPEG")  # Save as JPEG
+                    img.save(output, format="JPEG" if filename.lower().endswith(".jpg") else "PNG")
                     image_data = output.getvalue()
                 images.append((filename, image_data))
     except FileNotFoundError:
