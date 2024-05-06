@@ -140,7 +140,7 @@ class ImageAnalysisGUI:
         summary = {
             "Detection Average": df["Detection"].eq("Accurate").mean(),
             "Accuracy Average": df["Accuracy"].eq("High Confidence").mean(),
-            "Pass Rate ": f"{df["Pass"].sum()} / {len(df)}",
+            "Pass Rate ": f'{df["Pass"].sum()} / {len(df)}',
             "Pass Percentage": df["Pass"].eq(True).mean()
         }
 
